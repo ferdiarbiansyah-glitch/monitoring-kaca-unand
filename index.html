@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Monitoring Termal & Optik Kaca — Teknik Elektro UNAND</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <!-- Pustaka MQTT.js untuk Koneksi WebSocket (WSS) di Vercel -->
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+</head>
+
+<body class="bg-slate-50/40 text-slate-800 font-sans antialiased min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-white/95 backdrop-blur border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 py-3.5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            <div>
+                <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-[11px] font-bold uppercase tracking-wider text-emerald-800 mb-1">
+                    <span>Teknik Elektro</span>
+                    <span class="text-emerald-400">•</span>
+                    <span>Fakultas Teknik</span>
+                    <span class="text-emerald-400">•</span>
+                    <span>Universitas Andalas</span>
+                </div>
+                <h1 class="text-lg md:text-xl font-bold text-cyan-700 leading-snug">Monitoring Karakteristik Termal & Optik Bilik Uji Kaca</h1>
+                <p class="text-xs text-slate-500">Komparasi Luar & Dalam Bilik: Kaca Konvensional (Referensi) vs. Kaca Low-E (Sampel Uji)</p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2.5">
+                <!-- Jam Real-Time Utama -->
+                <div class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 flex items-center gap-3 shadow-2xs">
+                    <div class="flex items-center gap-1.5">
+                        <span class="relative flex h-2.5 w-2.5">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                        </span>
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-700">LIVE</span>
+                    </div>
+                    <div class="border-l border-slate-200 pl-3">
+                        <div id="live-clock" class="text-sm md:text-base font-mono font-bold text-slate-900 tracking-wider leading-none">--:--:-- WIB</div>
+                        <div id="live-date" class="text-[11px] text-slate-500 mt-0.5">Memuat tanggal...</div>
+                    </div>
+                </div>
+
+                <!-- Status & Kontrol -->
+                <span id="conn-badge" class="text-xs px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 border border-amber-300 font-medium">
+          Menghubungkan MQTT...
+        </span>
+                <button onclick="toggleDemoMode()" id="btn-demo" class="text-xs px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-medium transition">
+          Matikan Simulasi
+        </button>
+                <button onclick="exportCSV()" class="text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm transition">
+          Unduh CSV (<span id="log-count">0</span>)
+        </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-6 space-y-6 flex-1 w-full">
+
+        <!-- Bar Acuan Waktu Pengujian & Diagnostik Sensor -->
+        <section class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="flex flex-wrap items-center gap-3">
+                <div class="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 flex items-center gap-2.5">
+                    <span class="text-xs text-slate-600">Durasi Pengujian:</span>
+                    <span id="elapsed-timer" class="text-sm font-mono font-bold text-cyan-700">00:00:00</span>
+                    <button onclick="resetSessionData()" title="Reset Durasi, Grafik & Log CSV" class="text-[11px] px-2 py-0.5 rounded bg-white hover:bg-slate-100 text-slate-600 border border-slate-300 transition">
+            Reset
+          </button>
+                </div>
+                <span class="text-xs text-slate-500 hidden sm:inline">Waktu Puncak Uji: 10:00 – 14:00 WIB</span>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-4 text-xs text-slate-700 font-medium">
+                <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Sensor:</span>
+                <div class="flex items-center gap-1.5"><span id="led-ds" class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> DS18B20 (Suhu)</div>
+                <div class="flex items-center gap-1.5"><span id="led-bh" class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> BH1750 (Lux)</div>
+                <div class="flex items-center gap-1.5"><span id="led-tsl" class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> TSL2591 (IR)</div>
+            </div>
+        </section>
+
+        <!-- Perbandingan Side-by-Side -->
+        <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+            <!-- BILIK 1: KACA KONVENSIONAL -->
+            <div class="bg-white border border-rose-200 rounded-xl p-5 shadow-sm space-y-4">
+                <div class="flex justify-between items-start border-b border-slate-100 pb-3">
+                    <div>
+                        <span class="text-xs font-bold uppercase tracking-wider text-rose-600">ESP32 #1 • Referensi</span>
+                        <h2 class="text-lg font-bold text-slate-900">Bilik Kaca Konvensional</h2>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-xs text-slate-700 font-mono font-semibold" id="time-k1">--:--:--</div>
+                        <div class="text-[11px] text-slate-500" id="ago-k1">Menunggu data...</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div class="bg-slate-50/80 p-3.5 rounded-lg border border-slate-200/80 space-y-1.5">
+                        <div class="text-xs font-semibold text-slate-600">Suhu Ruang (°C)</div>
+                        <div class="flex justify-between text-xs text-slate-500">
+                            <span>Luar:</span>
+                            <span class="font-bold text-slate-800"><span id="k1-tout">0.0</span> °C</span>
+                        </div>
+                        <div class="flex justify-between text-xs text-slate-500">
+                            <span>Dalam:</span>
+                            <span class="font-bold text-rose-600"><span id="k1-tin">0.0</span> °C</span>
+                        </div>
+                        <div class="pt-1 border-t border-slate-200 text-xs text-slate-500 flex justify-between">
+                            <span>Selisih (ΔT):</span>
+                            <span id="k1-tdelta" class="text-rose-600 font-bold">0.0 °C</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50/80 p-3.5 rounded-lg border border-slate-200/80 space-y-1.5">
+                        <div class="text-xs font-semibold text-slate-600">Cahaya Tampak (Lux)</div>
+                        <div class="flex justify-between text-xs text-slate-500">
+                            <span>Luar:</span>
+                            <span class="font-bold text-slate-800"><span id="k1-lux-out">0</span> lx</span>
+                        </div>
+                        <div class="flex justify-between text-xs text-slate-500">
+                            <span>Dalam:</span>
+                            <span class="font-bold text-amber-600"><span id="k1-lux-in">0</span> lx</span>
+                        </div>
+                        <div class="pt-1 border-t border-slate-200 text-xs text-slate-500 flex justify-between">
+                            <span>Transmitansi:</span>
+                            <span id="k1-lux-pct" class="text-amber-700 font-bold">0%</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50/80 p-3.5 rounded-lg border border-slate-200/80 space-y-1.5">
+                        <div class="text-xs font-semibold text-slate-600">Inframerah (IR)</div>
+                        <div class="flex justify-between text-xs text-slate-500">
+                            <span>Luar:</span>
+                            <span class="font-bold text-slate-800" id="k1-ir-out">0</span>
+                        </div>
+                        <div class="flex justify-between text-xs text-slate-500">
+                            <span>Dalam:</span>
+                            <span class="font-bold text-orange-600" id="k1-ir-in">0</span>
+                        </div>
+                        <div class="pt-1 border-t border-slate-200 text-xs text-slate-500 flex justify-between">
+                            <span>Transmitansi:</span>
+                            <span id="k1-ir-pct" class="text-orange-700 font-bold">0%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BILIK 2: KACA LOW-E -->
+            <div class="bg-white border border-cyan-200 rounded-xl p-5 shadow-sm space-y-4">
+                <div class="flex justify-between items-start border-b border-slate-100 pb-3">
+                    <div>
+                        <span class="text-xs font-bold uppercase tracking-wider text-cyan-700">ESP32 #2 • Sampel Uji</span>
+                        <h2 class="text-lg font-bold text-slate-900">Bilik Kaca Low-E</h2>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-xs text-slate-700 font-mono font-semibold" id="time-k2">--:--:--</div>
+                        <div class="text-[11px] text-slate-500" id="ago-k2">Menunggu data...</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div class="bg-slate-50/80 p-3.5 rounded-lg border border-slate-200/80 space-y-1.5">
+                        <div class="text-xs font-semibold text-slate-600">Suhu Ruang (°C)</div>
+                        <div class="flex justify-between text-xs text-slate-500">
+                            <span>Luar:</span>
+                            <span class="font-bold text-slate-800"><span id="k2-tout">0.0</span> °C</span>
+                        </div>
+                        <div class="flex justify-between text-xs text-slate-500">
+                            <span>Dalam:</span>
+                            <span class="font-bold text-emerald-600"><span id="k2-tin">0.0</span> °C</span>
+                        </div>
+                        <div class="pt-1 border-t border-slate-200 text-xs text-slate-500 flex justify-between">
+                            <span>Selisih (ΔT):</span>
+                            <span id="k2-tdelta" class="text-emerald-700 font-bold">0.0 °C</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50/80 p-3.5 rounded-lg border border-slate-200/80 space-y-1.5">
+                        <div class="text-xs font-semibold text-slate-600">Cahaya Tampak (Lux)</div>
+                        <div class="flex justify-between text-xs text-slate-500">
+                            <span>Luar:</span>
+                            <span class="font-bold text-slate-800"><span id="k2-lux-out">0</span> lx</span>
+                        </div>
+                        <div class="flex justify-between text-xs text-slate-500">
+                            <span>Dalam:</span>
+                            <span class="font-bold text-sky-600"><span id="k2-lux-in">0</span> lx</span>
+                        </div>
+                        <div class="pt-1 border-t border-slate-200 text-xs text-slate-500 flex justify-between">
+                            <span>Transmitansi:</span>
+                            <span id="k2-lux-pct" class="text-sky-700 font-bold">0%</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50/80 p-3.5 rounded-lg border border-slate-200/80 space-y-1.5">
+                        <div class="text-xs font-semibold text-slate-600">Inframerah (IR)</div>
+                        <div class="flex justify-between text-xs text-slate-500">
+                            <span>Luar:</span>
+                            <span class="font-bold text-slate-800" id="k2-ir-out">0</span>
+                        </div>
+                        <div class="flex justify-between text-xs text-slate-500">
+                            <span>Dalam:</span>
+                            <span class="font-bold text-cyan-600" id="k2-ir-in">0</span>
+                        </div>
+                        <div class="pt-1 border-t border-slate-200 text-xs text-slate-500 flex justify-between">
+                            <span>Transmitansi:</span>
+                            <span id="k2-ir-pct" class="text-cyan-700 font-bold">0%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Bagian Grafik Modern (4 Kurva per Grafik Tren: 2 Luar + 2 Dalam) -->
+        <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+            <!-- Grafik 1: Suhu Ruang -->
+            <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col">
+                <div class="flex flex-wrap items-start justify-between gap-2 mb-4">
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-900">Profil Suhu Ruang Luar & Dalam Bilik (4 Sensor)</h3>
+                        <p class="text-[11px] text-slate-500">Sensor DS18B20 • 2 Sensor Luar & 2 Sensor Dalam (°C)</p>
+                    </div>
+                    <span id="badge-temp-diff" class="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+            Low-E: -- °C lebih sejuk
+          </span>
+                </div>
+                <div class="h-72 w-full"><canvas id="chartTemp"></canvas></div>
+            </div>
+
+            <!-- Grafik 2: Efisiensi Optik & Termal (Bar Chart) -->
+            <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col">
+                <div class="flex flex-wrap items-start justify-between gap-2 mb-4">
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-900">Komparasi Efisiensi Optik & Reduksi Panas</h3>
+                        <p class="text-[11px] text-slate-500">Rasio Performa Real-Time Konvensional vs. Low-E (%)</p>
+                    </div>
+                    <span id="badge-perf-summary" class="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200">
+            Selektivitas Spektral
+          </span>
+                </div>
+                <div class="h-72 w-full"><canvas id="chartBar"></canvas></div>
+            </div>
+
+            <!-- Grafik 3: Cahaya Tampak (Lux) -->
+            <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col">
+                <div class="flex flex-wrap items-start justify-between gap-2 mb-4">
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-900">Tren Iluminasi Cahaya Tampak (4 Sensor)</h3>
+                        <p class="text-[11px] text-slate-500">Sensor BH1750 • 2 Sensor Luar & 2 Sensor Dalam (lx)</p>
+                    </div>
+                    <span id="badge-lux-diff" class="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-sky-50 text-sky-700 border border-sky-200">
+            Transmitansi Lux: --%
+          </span>
+                </div>
+                <div class="h-72 w-full"><canvas id="chartLux"></canvas></div>
+            </div>
+
+            <!-- Grafik 4: Inframerah (IR) -->
+            <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col">
+                <div class="flex flex-wrap items-start justify-between gap-2 mb-4">
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-900">Tren Radiasi Inframerah (4 Sensor)</h3>
+                        <p class="text-[11px] text-slate-500">Sensor TSL2591 • 2 Sensor Luar & 2 Sensor Dalam (Counts)</p>
+                    </div>
+                    <span id="badge-ir-diff" class="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-orange-50 text-orange-700 border border-orange-200">
+            Reduksi IR Low-E: --%
+          </span>
+                </div>
+                <div class="h-72 w-full"><canvas id="chartIR"></canvas></div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Footer Akademik -->
+    <footer class="border-t border-slate-200 bg-white py-4 mt-8">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
+            <span class="font-semibold text-slate-700">Departemen Teknik Elektro — Fakultas Teknik Universitas Andalas</span>
+            <span>Sistem Akuisisi Data IoT Radiasi Surya & Karakteristik Termal Kaca</span>
+        </div>
+    </footer>
+
+    <script>
+        // ==========================================
+        // 1. KONFIGURASI BROKER MQTT OVER WEBSOCKET
+        // ==========================================
+        const MQTT_CONFIG = {
+            brokerUrl: "wss://broker.hivemq.com:8884/mqtt",
+            topicBilik1: "unand/te/kaca/bilik1",
+            topicBilik2: "unand/te/kaca/bilik2",
+            topicStatus: "unand/te/kaca/status"
+        };
+
+        let isDemo = true;
+        let isAutoDemo = true; // Menandai simulasi awal sebelum paket ESP32 asli tiba
+        let mqttConnected = false;
+        let demoInterval = null;
+        let sessionStartMs = Date.now();
+        let lastUpdateK1 = null;
+        let lastUpdateK2 = null;
+        let chartTemp = null,
+            chartLux = null,
+            chartIR = null,
+            chartBar = null;
+        const csvLogs = [];
+
+        const state = {
+            kaca1: {
+                t_out: 33.0,
+                t_in: 36.2,
+                lux_out: 65000,
+                lux_in: 54000,
+                ir_out: 18500,
+                ir_in: 14200
+            },
+            kaca2: {
+                t_out: 33.4,
+                t_in: 31.4,
+                lux_out: 65400,
+                lux_in: 46800,
+                ir_out: 18750,
+                ir_in: 3900
+            },
+            status: {
+                ds18b20: 1,
+                bh1750: 1,
+                tsl2591: 1
+            }
+        };
+
+        // ==========================================
+        // 2. JAM REAL-TIME & PENGHITUNG DURASI
+        // ==========================================
+        function formatDuration(ms) {
+            const totalSec = Math.max(0, Math.floor(ms / 1000));
+            const h = String(Math.floor(totalSec / 3600)).padStart(2, "0");
+            const m = String(Math.floor((totalSec % 3600) / 60)).padStart(2, "0");
+            const s = String(totalSec % 60).padStart(2, "0");
+            return `${h}:${m}:${s}`;
+        }
+
+        function updateLiveClock() {
+            const now = new Date();
+            document.getElementById("live-clock").innerText = now.toLocaleTimeString("id-ID", {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                hour12: false
+            }) + " WIB";
+            document.getElementById("live-date").innerText = now.toLocaleDateString("id-ID", {
+                weekday: "long",
+                day: "numeric",
+                month: "long",
+                year: "numeric"
+            });
+            document.getElementById("elapsed-timer").innerText = formatDuration(now.getTime() - sessionStartMs);
+
+            if (lastUpdateK1) {
+                const diff1 = Math.floor((now.getTime() - lastUpdateK1) / 1000);
+                const el1 = document.getElementById("ago-k1");
+                el1.innerText = `Update: ${diff1} dtk lalu`;
+                el1.className = diff1 > 15 ? "text-[11px] text-rose-600 font-semibold" : "text-[11px] text-emerald-600 font-medium";
+            }
+            if (lastUpdateK2) {
+                const diff2 = Math.floor((now.getTime() - lastUpdateK2) / 1000);
+                const el2 = document.getElementById("ago-k2");
+                el2.innerText = `Update: ${diff2} dtk lalu`;
+                el2.className = diff2 > 15 ? "text-[11px] text-rose-600 font-semibold" : "text-[11px] text-emerald-600 font-medium";
+            }
+        }
+
+        function resetSessionData() {
+            sessionStartMs = Date.now();
+            csvLogs.length = 0;
+            document.getElementById("log-count").innerText = "0";
+            [chartTemp, chartLux, chartIR].forEach(c => {
+                if (!c) return;
+                c.data.labels = [];
+                c.data.datasets.forEach(ds => ds.data = []);
+                c.update();
+            });
+            updateLiveClock();
+        }
+
+        // ==========================================
+        // 3. INISIALISASI 4 GRAFIK
+        // ==========================================
+        function makeGradient(r, g, b, alphaTop = 0.22) {
+            return (context) => {
+                const {
+                    ctx,
+                    chartArea
+                } = context.chart;
+                if (!chartArea) return `rgba(${r}, ${g}, ${b}, 0.08)`;
+                const grad = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${alphaTop})`);
+                grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0.0)`);
+                return grad;
+            };
+        }
+
+        function initCharts() {
+            if (typeof Chart === "undefined") return;
+
+            const commonOptions = (unitLabel) => ({
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: {
+                    duration: 250
+                },
+                interaction: {
+                    mode: "index",
+                    intersect: false
+                },
+                plugins: {
+                    legend: {
+                        position: "top",
+                        align: "start",
+                        labels: {
+                            usePointStyle: true,
+                            pointStyle: "circle",
+                            boxWidth: 7,
+                            boxHeight: 7,
+                            padding: 10,
+                            color: "#334155",
+                            font: {
+                                size: 10,
+                                weight: "600"
+                            }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: "rgba(15, 23, 42, 0.94)",
+                        titleColor: "#f8fafc",
+                        bodyColor: "#e2e8f0",
+                        borderColor: "#334155",
+                        borderWidth: 1,
+                        padding: 10,
+                        cornerRadius: 8,
+                        usePointStyle: true,
+                        callbacks: {
+                            label: (ctx) => ` ${ctx.dataset.label}: ${Number(ctx.parsed.y).toLocaleString("id-ID")} ${unitLabel}`
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            color: "#64748b",
+                            maxTicksLimit: 7,
+                            font: {
+                                size: 10
+                            }
+                        },
+                        grid: {
+                            display: false
+                        },
+                        border: {
+                            color: "#e2e8f0"
+                        }
+                    },
+                    y: {
+                        ticks: {
+                            color: "#64748b",
+                            font: {
+                                size: 10
+                            }
+                        },
+                        grid: {
+                            color: "#f1f5f9",
+                            borderDash: [4, 4]
+                        },
+                        border: {
+                            display: false
+                        }
+                    }
+                },
+                elements: {
+                    point: {
+                        radius: 0,
+                        hoverRadius: 5,
+                        hoverBorderWidth: 2
+                    },
+                    line: {
+                        tension: 0.38
+                    }
+                }
+            });
+
+            chartTemp = new Chart(document.getElementById("chartTemp").getContext("2d"), {
+                type: "line",
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: "Luar Bilik 1 (Konv.)",
+                        data: [],
+                        borderColor: "#64748b",
+                        borderDash: [6, 4],
+                        borderWidth: 1.8,
+                        fill: false
+                    }, {
+                        label: "Luar Bilik 2 (Low-E)",
+                        data: [],
+                        borderColor: "#6366f1",
+                        borderDash: [2, 3],
+                        borderWidth: 1.8,
+                        fill: false
+                    }, {
+                        label: "Dalam Konvensional",
+                        data: [],
+                        borderColor: "#e11d48",
+                        backgroundColor: makeGradient(225, 29, 72, 0.2),
+                        borderWidth: 2.5,
+                        fill: true
+                    }, {
+                        label: "Dalam Low-E",
+                        data: [],
+                        borderColor: "#059669",
+                        backgroundColor: makeGradient(5, 150, 105, 0.2),
+                        borderWidth: 2.5,
+                        fill: true
+                    }]
+                },
+                options: commonOptions("°C")
+            });
+
+            chartBar = new Chart(document.getElementById("chartBar").getContext("2d"), {
+                type: "bar",
+                data: {
+                    labels: ["Transmitansi Cahaya (%)", "Transmitansi IR (%)", "Daya Tolak Panas IR (%)"],
+                    datasets: [{
+                        label: "Kaca Konvensional",
+                        data: [0, 0, 0],
+                        backgroundColor: "rgba(225, 29, 72, 0.85)",
+                        borderColor: "#e11d48",
+                        borderWidth: 1,
+                        borderRadius: 6,
+                        barPercentage: 0.65,
+                        categoryPercentage: 0.65
+                    }, {
+                        label: "Kaca Low-E",
+                        data: [0, 0, 0],
+                        backgroundColor: "rgba(8, 145, 178, 0.85)",
+                        borderColor: "#0891b2",
+                        borderWidth: 1,
+                        borderRadius: 6,
+                        barPercentage: 0.65,
+                        categoryPercentage: 0.65
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                        duration: 300
+                    },
+                    plugins: {
+                        legend: {
+                            position: "top",
+                            align: "start",
+                            labels: {
+                                usePointStyle: true,
+                                pointStyle: "circle",
+                                boxWidth: 8,
+                                padding: 14,
+                                color: "#334155",
+                                font: {
+                                    size: 11,
+                                    weight: "600"
+                                }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: "rgba(15, 23, 42, 0.94)",
+                            padding: 10,
+                            cornerRadius: 8,
+                            callbacks: {
+                                label: (ctx) => ` ${ctx.dataset.label}: ${ctx.parsed.y}%`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                color: "#334155",
+                                font: {
+                                    size: 11,
+                                    weight: "600"
+                                }
+                            },
+                            border: {
+                                color: "#e2e8f0"
+                            }
+                        },
+                        y: {
+                            min: 0,
+                            max: 100,
+                            ticks: {
+                                color: "#64748b",
+                                font: {
+                                    size: 10
+                                },
+                                callback: (v) => v + "%"
+                            },
+                            grid: {
+                                color: "#f1f5f9",
+                                borderDash: [4, 4]
+                            },
+                            border: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+
+            chartLux = new Chart(document.getElementById("chartLux").getContext("2d"), {
+                type: "line",
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: "Luar Bilik 1 (Konv.)",
+                        data: [],
+                        borderColor: "#64748b",
+                        borderDash: [6, 4],
+                        borderWidth: 1.8,
+                        fill: false
+                    }, {
+                        label: "Luar Bilik 2 (Low-E)",
+                        data: [],
+                        borderColor: "#6366f1",
+                        borderDash: [2, 3],
+                        borderWidth: 1.8,
+                        fill: false
+                    }, {
+                        label: "Dalam Konvensional",
+                        data: [],
+                        borderColor: "#d97706",
+                        backgroundColor: makeGradient(217, 119, 6, 0.18),
+                        borderWidth: 2.5,
+                        fill: true
+                    }, {
+                        label: "Dalam Low-E",
+                        data: [],
+                        borderColor: "#0284c7",
+                        backgroundColor: makeGradient(2, 132, 199, 0.18),
+                        borderWidth: 2.5,
+                        fill: true
+                    }]
+                },
+                options: commonOptions("lx")
+            });
+
+            chartIR = new Chart(document.getElementById("chartIR").getContext("2d"), {
+                type: "line",
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: "Luar Bilik 1 (Konv.)",
+                        data: [],
+                        borderColor: "#64748b",
+                        borderDash: [6, 4],
+                        borderWidth: 1.8,
+                        fill: false
+                    }, {
+                        label: "Luar Bilik 2 (Low-E)",
+                        data: [],
+                        borderColor: "#6366f1",
+                        borderDash: [2, 3],
+                        borderWidth: 1.8,
+                        fill: false
+                    }, {
+                        label: "Dalam Konvensional",
+                        data: [],
+                        borderColor: "#ea580c",
+                        backgroundColor: makeGradient(234, 88, 12, 0.2),
+                        borderWidth: 2.5,
+                        fill: true
+                    }, {
+                        label: "Dalam Low-E",
+                        data: [],
+                        borderColor: "#0891b2",
+                        backgroundColor: makeGradient(8, 145, 178, 0.2),
+                        borderWidth: 2.5,
+                        fill: true
+                    }]
+                },
+                options: commonOptions("counts")
+            });
+        }
+
+        function pushChartPoint(chart, label, values) {
+            if (!chart) return;
+            chart.data.labels.push(label);
+            values.forEach((v, idx) => chart.data.datasets[idx].data.push(v));
+            if (chart.data.labels.length > 25) {
+                chart.data.labels.shift();
+                chart.data.datasets.forEach(ds => ds.data.shift());
+            }
+            chart.update();
+        }
+
+        // ==========================================
+        // 4. UPDATE UI & RECORD LOG CSV
+        // ==========================================
+        const calcRatio = (inside, outside) => outside > 0 ? +((inside / outside) * 100).toFixed(1) : 0;
+        const calcDelta = (outside, inside) => {
+            const diff = (outside - inside).toFixed(1);
+            return (diff > 0 ? "+" : "") + diff + " °C";
+        };
+
+        function renderDashboard() {
+            const nowObj = new Date();
+            const now = nowObj.toLocaleTimeString("id-ID", {
+                hour12: false
+            });
+            const {
+                kaca1: k1,
+                kaca2: k2,
+                status: st
+            } = state;
+
+            const k1LuxPct = calcRatio(k1.lux_in, k1.lux_out);
+            const k1IrPct = calcRatio(k1.ir_in, k1.ir_out);
+            const k2LuxPct = calcRatio(k2.lux_in, k2.lux_out);
+            const k2IrPct = calcRatio(k2.ir_in, k2.ir_out);
+
+            document.getElementById("k1-tout").innerText = Number(k1.t_out).toFixed(1);
+            document.getElementById("k1-tin").innerText = Number(k1.t_in).toFixed(1);
+            document.getElementById("k1-tdelta").innerText = calcDelta(k1.t_out, k1.t_in);
+            document.getElementById("k1-lux-out").innerText = Math.round(k1.lux_out).toLocaleString("id-ID");
+            document.getElementById("k1-lux-in").innerText = Math.round(k1.lux_in).toLocaleString("id-ID");
+            document.getElementById("k1-lux-pct").innerText = k1LuxPct + "%";
+            document.getElementById("k1-ir-out").innerText = Math.round(k1.ir_out).toLocaleString("id-ID");
+            document.getElementById("k1-ir-in").innerText = Math.round(k1.ir_in).toLocaleString("id-ID");
+            document.getElementById("k1-ir-pct").innerText = k1IrPct + "%";
+
+            document.getElementById("k2-tout").innerText = Number(k2.t_out).toFixed(1);
+            document.getElementById("k2-tin").innerText = Number(k2.t_in).toFixed(1);
+            document.getElementById("k2-tdelta").innerText = calcDelta(k2.t_out, k2.t_in);
+            document.getElementById("k2-lux-out").innerText = Math.round(k2.lux_out).toLocaleString("id-ID");
+            document.getElementById("k2-lux-in").innerText = Math.round(k2.lux_in).toLocaleString("id-ID");
+            document.getElementById("k2-lux-pct").innerText = k2LuxPct + "%";
+            document.getElementById("k2-ir-out").innerText = Math.round(k2.ir_out).toLocaleString("id-ID");
+            document.getElementById("k2-ir-in").innerText = Math.round(k2.ir_in).toLocaleString("id-ID");
+            document.getElementById("k2-ir-pct").innerText = k2IrPct + "%";
+
+            const tempGap = (k1.t_in - k2.t_in).toFixed(1);
+            document.getElementById("badge-temp-diff").innerText =
+                tempGap >= 0 ? `Low-E: ${tempGap} °C lebih sejuk` : `Selisih Bilik: ${Math.abs(tempGap)} °C`;
+            document.getElementById("badge-lux-diff").innerText = `Low-E: ${k2LuxPct}% vs Konv: ${k1LuxPct}%`;
+            const irRejectLowE = Math.max(0, +(100 - k2IrPct).toFixed(1));
+            const irRejectKonv = Math.max(0, +(100 - k1IrPct).toFixed(1));
+            document.getElementById("badge-ir-diff").innerText = `Blokir IR Low-E: ${irRejectLowE}%`;
+
+            const setLed = (id, ok) => {
+                document.getElementById(id).className = `w-2.5 h-2.5 rounded-full ${ok ? "bg-emerald-500" : "bg-rose-500"}`;
+            };
+            setLed("led-ds", st.ds18b20);
+            setLed("led-bh", st.bh1750);
+            setLed("led-tsl", st.tsl2591);
+
+            pushChartPoint(chartTemp, now, [k1.t_out, k2.t_out, k1.t_in, k2.t_in]);
+            pushChartPoint(chartLux, now, [k1.lux_out, k2.lux_out, k1.lux_in, k2.lux_in]);
+            pushChartPoint(chartIR, now, [k1.ir_out, k2.ir_out, k1.ir_in, k2.ir_in]);
+
+            if (chartBar) {
+                chartBar.data.datasets[0].data = [k1LuxPct, k1IrPct, irRejectKonv];
+                chartBar.data.datasets[1].data = [k2LuxPct, k2IrPct, irRejectLowE];
+                chartBar.update();
+            }
+
+            const elapsedStr = formatDuration(nowObj.getTime() - sessionStartMs);
+            csvLogs.push([
+                now, elapsedStr,
+                k1.t_out, k1.t_in, k1.lux_out, k1.lux_in, k1.ir_out, k1.ir_in,
+                k2.t_out, k2.t_in, k2.lux_out, k2.lux_in, k2.ir_out, k2.ir_in
+            ]);
+            document.getElementById("log-count").innerText = csvLogs.length;
+        }
+
+        function exportCSV() {
+            if (csvLogs.length === 0) return alert("Belum ada data terekam.");
+            const header = "Waktu_WIB,Durasi_Sesi,K1_T_Out,K1_T_In,K1_Lux_Out,K1_Lux_In,K1_IR_Out,K1_IR_In,K2_T_Out,K2_T_In,K2_Lux_Out,K2_Lux_In,K2_IR_Out,K2_IR_In\n";
+            const rows = csvLogs.map(r => r.join(",")).join("\n");
+            const blob = new Blob([header + rows], {
+                type: "text/csv;charset=utf-8;"
+            });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `monitoring_bilik_kaca_UNAND_${new Date().toISOString().slice(0,10)}.csv`;
+            a.click();
+        }
+
+        // ==========================================
+        // 5. KONEKSI MQTT OVER WEBSOCKET & SIMULASI
+        // ==========================================
+        function updateStatusUI() {
+            const badge = document.getElementById("conn-badge");
+            const btn = document.getElementById("btn-demo");
+
+            if (isDemo) {
+                badge.className = "text-xs px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 border border-amber-300 font-medium";
+                badge.innerText = mqttConnected ? "MQTT Siap • Mode Simulasi" : "Mode Simulasi Aktif";
+                btn.innerText = "Matikan Simulasi";
+            } else {
+                btn.innerText = "Nyalakan Simulasi";
+                if (mqttConnected) {
+                    badge.className = "text-xs px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-300 font-medium";
+                    badge.innerText = "Terhubung ke MQTT Live";
+                } else {
+                    badge.className = "text-xs px-3 py-1.5 rounded-full bg-rose-50 text-rose-700 border border-rose-300 font-medium";
+                    badge.innerText = "MQTT Terputus";
+                }
+            }
+        }
+
+        function startDemo() {
+            clearInterval(demoInterval);
+            const tick = () => {
+                const jitter = (val, range) => +(val + (Math.random() - 0.5) * range).toFixed(2);
+                state.kaca1.t_out = jitter(33.1, 0.4);
+                state.kaca1.t_in = jitter(36.8, 0.5);
+                state.kaca1.lux_out = Math.round(jitter(64800, 1000));
+                state.kaca1.lux_in = Math.round(jitter(54500, 1200));
+                state.kaca1.ir_out = Math.round(jitter(18400, 300));
+                state.kaca1.ir_in = Math.round(jitter(14300, 400));
+
+                state.kaca2.t_out = jitter(33.5, 0.4);
+                state.kaca2.t_in = jitter(31.2, 0.4);
+                state.kaca2.lux_out = Math.round(jitter(65300, 1000));
+                state.kaca2.lux_in = Math.round(jitter(47200, 1000));
+                state.kaca2.ir_out = Math.round(jitter(18750, 300));
+                state.kaca2.ir_in = Math.round(jitter(3850, 200));
+
+                const nowMs = Date.now();
+                const nowStr = new Date(nowMs).toLocaleTimeString("id-ID", {
+                    hour12: false
+                }) + " WIB";
+                lastUpdateK1 = nowMs;
+                lastUpdateK2 = nowMs;
+                document.getElementById("time-k1").innerText = nowStr;
+                document.getElementById("time-k2").innerText = nowStr;
+                renderDashboard();
+            };
+            tick();
+            demoInterval = setInterval(tick, 2500);
+        }
+
+        function toggleDemoMode() {
+            isDemo = !isDemo;
+            isAutoDemo = false;
+            updateStatusUI();
+            if (isDemo) startDemo();
+            else clearInterval(demoInterval);
+        }
+
+        function initMQTT() {
+            if (typeof mqtt === "undefined") {
+                console.error("Library MQTT.js gagal dimuat.");
+                return;
+            }
+
+            const client = mqtt.connect(MQTT_CONFIG.brokerUrl, {
+                clientId: "Web-UNAND-" + Math.random().toString(16).slice(2, 8),
+                clean: true,
+                reconnectPeriod: 3000
+            });
+
+            client.on("connect", () => {
+                mqttConnected = true;
+                updateStatusUI();
+                client.subscribe([
+                    MQTT_CONFIG.topicBilik1,
+                    MQTT_CONFIG.topicBilik2,
+                    MQTT_CONFIG.topicStatus
+                ]);
+            });
+
+            client.on("message", (topic, message) => {
+                // Jika simulasi awal masih jalan, hentikan otomatis & bersihkan log saat paket ESP32 asli tiba
+                if (isDemo && isAutoDemo) {
+                    isDemo = false;
+                    isAutoDemo = false;
+                    clearInterval(demoInterval);
+                    resetSessionData();
+                    updateStatusUI();
+                } else if (isDemo && !isAutoDemo) {
+                    return; // User menyalakan simulasi secara manual
+                }
+
+                try {
+                    const data = JSON.parse(message.toString());
+                    const nowMs = Date.now();
+                    const nowStr = new Date(nowMs).toLocaleTimeString("id-ID", {
+                        hour12: false
+                    }) + " WIB";
+
+                    if (topic === MQTT_CONFIG.topicBilik1) {
+                        Object.assign(state.kaca1, data);
+                        lastUpdateK1 = nowMs;
+                        document.getElementById("time-k1").innerText = nowStr;
+                        renderDashboard();
+                    } else if (topic === MQTT_CONFIG.topicBilik2) {
+                        Object.assign(state.kaca2, data);
+                        lastUpdateK2 = nowMs;
+                        document.getElementById("time-k2").innerText = nowStr;
+                        renderDashboard();
+                    } else if (topic === MQTT_CONFIG.topicStatus) {
+                        Object.assign(state.status, data);
+                        renderDashboard();
+                    }
+                } catch (err) {
+                    console.error("Format JSON MQTT tidak valid:", err);
+                }
+            });
+
+            client.on("offline", () => {
+                mqttConnected = false;
+                updateStatusUI();
+            });
+
+            client.on("error", (err) => {
+                console.error("MQTT Error:", err);
+                mqttConnected = false;
+                updateStatusUI();
+            });
+        }
+
+        window.addEventListener("DOMContentLoaded", () => {
+            updateLiveClock();
+            setInterval(updateLiveClock, 1000);
+            try {
+                initCharts();
+            } catch (e) {
+                console.error("Chart init error:", e);
+            }
+
+            startDemo();
+            updateStatusUI();
+            initMQTT();
+        });
+    </script>
+</body>
+
+</html>
