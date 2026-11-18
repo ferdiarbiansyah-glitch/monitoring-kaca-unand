@@ -25,7 +25,7 @@
                     <span>Universitas Andalas</span>
                 </div>
                 <h1 class="text-lg md:text-xl font-bold text-cyan-700 leading-snug">Monitoring Karakteristik Termal & Optik Bilik Uji Kaca</h1>
-                <p class="text-xs text-slate-500">Komparasi Luar & Dalam Bilik: Kaca Konvensional (Referensi) vs. Kaca Low-E (Sampel Uji)</p>
+                <p class="text-xs text-slate-500">Komparasi Luar & Dalam Bilik: Bilik Kaca 1 vs. Bilik Kaca 2</p>
             </div>
 
             <div class="flex flex-wrap items-center gap-2.5">
@@ -33,7 +33,7 @@
                 <div class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 flex items-center gap-3 shadow-2xs">
                     <div class="flex items-center gap-1.5">
                         <span class="relative flex h-2.5 w-2.5">
-              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                         <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
                         </span>
                         <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-700">LIVE</span>
@@ -46,14 +46,14 @@
 
                 <!-- Status & Kontrol -->
                 <span id="conn-badge" class="text-xs px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 border border-amber-300 font-medium">
-          Menghubungkan MQTT...
-        </span>
+                    Menghubungkan MQTT...
+                </span>
                 <button onclick="toggleDemoMode()" id="btn-demo" class="text-xs px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-medium transition">
-          Matikan Simulasi
-        </button>
+                    Matikan Simulasi
+                </button>
                 <button onclick="exportCSV()" class="text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm transition">
-          Unduh CSV (<span id="log-count">0</span>)
-        </button>
+                    Unduh CSV (<span id="log-count">0</span>)
+                </button>
             </div>
         </div>
     </header>
@@ -67,8 +67,8 @@
                     <span class="text-xs text-slate-600">Durasi Pengujian:</span>
                     <span id="elapsed-timer" class="text-sm font-mono font-bold text-cyan-700">00:00:00</span>
                     <button onclick="resetSessionData()" title="Reset Durasi, Grafik & Log CSV" class="text-[11px] px-2 py-0.5 rounded bg-white hover:bg-slate-100 text-slate-600 border border-slate-300 transition">
-            Reset
-          </button>
+                        Reset
+                    </button>
                 </div>
                 <span class="text-xs text-slate-500 hidden sm:inline">Waktu Puncak Uji: 10:00 – 14:00 WIB</span>
             </div>
@@ -84,12 +84,12 @@
         <!-- Perbandingan Side-by-Side -->
         <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-            <!-- BILIK 1: KACA KONVENSIONAL -->
+            <!-- BILIK 1 -->
             <div class="bg-white border border-rose-200 rounded-xl p-5 shadow-sm space-y-4">
                 <div class="flex justify-between items-start border-b border-slate-100 pb-3">
                     <div>
-                        <span class="text-xs font-bold uppercase tracking-wider text-rose-600">ESP32 #1 • Referensi</span>
-                        <h2 class="text-lg font-bold text-slate-900">Bilik Kaca Konvensional</h2>
+                        <span class="text-xs font-bold uppercase tracking-wider text-rose-600">ESP32 #1</span>
+                        <h2 class="text-lg font-bold text-slate-900">Bilik Kaca 1</h2>
                     </div>
                     <div class="text-right">
                         <div class="text-xs text-slate-700 font-mono font-semibold" id="time-k1">--:--:--</div>
@@ -148,12 +148,12 @@
                 </div>
             </div>
 
-            <!-- BILIK 2: KACA LOW-E -->
+            <!-- BILIK 2 -->
             <div class="bg-white border border-cyan-200 rounded-xl p-5 shadow-sm space-y-4">
                 <div class="flex justify-between items-start border-b border-slate-100 pb-3">
                     <div>
-                        <span class="text-xs font-bold uppercase tracking-wider text-cyan-700">ESP32 #2 • Sampel Uji</span>
-                        <h2 class="text-lg font-bold text-slate-900">Bilik Kaca Low-E</h2>
+                        <span class="text-xs font-bold uppercase tracking-wider text-cyan-700">ESP32 #2</span>
+                        <h2 class="text-lg font-bold text-slate-900">Bilik Kaca 2</h2>
                     </div>
                     <div class="text-right">
                         <div class="text-xs text-slate-700 font-mono font-semibold" id="time-k2">--:--:--</div>
@@ -225,8 +225,8 @@
                         <p class="text-[11px] text-slate-500">Sensor DS18B20 • 2 Sensor Luar & 2 Sensor Dalam (°C)</p>
                     </div>
                     <span id="badge-temp-diff" class="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-            Low-E: -- °C lebih sejuk
-          </span>
+                        Bilik 2: --% lebih sejuk
+                    </span>
                 </div>
                 <div class="h-72 w-full"><canvas id="chartTemp"></canvas></div>
             </div>
@@ -236,11 +236,11 @@
                 <div class="flex flex-wrap items-start justify-between gap-2 mb-4">
                     <div>
                         <h3 class="text-sm font-bold text-slate-900">Komparasi Efisiensi Optik & Reduksi Panas</h3>
-                        <p class="text-[11px] text-slate-500">Rasio Performa Real-Time Konvensional vs. Low-E (%)</p>
+                        <p class="text-[11px] text-slate-500">Rasio Performa Real-Time Bilik 1 vs. Bilik 2 (%)</p>
                     </div>
                     <span id="badge-perf-summary" class="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200">
-            Selektivitas Spektral
-          </span>
+                        Selektivitas Spektral
+                    </span>
                 </div>
                 <div class="h-72 w-full"><canvas id="chartBar"></canvas></div>
             </div>
@@ -253,8 +253,8 @@
                         <p class="text-[11px] text-slate-500">Sensor BH1750 • 2 Sensor Luar & 2 Sensor Dalam (lx)</p>
                     </div>
                     <span id="badge-lux-diff" class="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-sky-50 text-sky-700 border border-sky-200">
-            Transmitansi Lux: --%
-          </span>
+                        Transmitansi Lux: --%
+                    </span>
                 </div>
                 <div class="h-72 w-full"><canvas id="chartLux"></canvas></div>
             </div>
@@ -267,8 +267,8 @@
                         <p class="text-[11px] text-slate-500">Sensor TSL2591 • 2 Sensor Luar & 2 Sensor Dalam (Counts)</p>
                     </div>
                     <span id="badge-ir-diff" class="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-orange-50 text-orange-700 border border-orange-200">
-            Reduksi IR Low-E: --%
-          </span>
+                        Blokir IR: --%
+                    </span>
                 </div>
                 <div class="h-72 w-full"><canvas id="chartIR"></canvas></div>
             </div>
@@ -497,28 +497,28 @@
                 data: {
                     labels: [],
                     datasets: [{
-                        label: "Luar Bilik 1 (Konv.)",
+                        label: "Luar Bilik 1",
                         data: [],
                         borderColor: "#64748b",
                         borderDash: [6, 4],
                         borderWidth: 1.8,
                         fill: false
                     }, {
-                        label: "Luar Bilik 2 (Low-E)",
+                        label: "Luar Bilik 2",
                         data: [],
                         borderColor: "#6366f1",
                         borderDash: [2, 3],
                         borderWidth: 1.8,
                         fill: false
                     }, {
-                        label: "Dalam Konvensional",
+                        label: "Dalam Bilik 1",
                         data: [],
                         borderColor: "#e11d48",
                         backgroundColor: makeGradient(225, 29, 72, 0.2),
                         borderWidth: 2.5,
                         fill: true
                     }, {
-                        label: "Dalam Low-E",
+                        label: "Dalam Bilik 2",
                         data: [],
                         borderColor: "#059669",
                         backgroundColor: makeGradient(5, 150, 105, 0.2),
@@ -534,7 +534,7 @@
                 data: {
                     labels: ["Transmitansi Cahaya (%)", "Transmitansi IR (%)", "Daya Tolak Panas IR (%)"],
                     datasets: [{
-                        label: "Kaca Konvensional",
+                        label: "Bilik Kaca 1",
                         data: [0, 0, 0],
                         backgroundColor: "rgba(225, 29, 72, 0.85)",
                         borderColor: "#e11d48",
@@ -543,7 +543,7 @@
                         barPercentage: 0.65,
                         categoryPercentage: 0.65
                     }, {
-                        label: "Kaca Low-E",
+                        label: "Bilik Kaca 2",
                         data: [0, 0, 0],
                         backgroundColor: "rgba(8, 145, 178, 0.85)",
                         borderColor: "#0891b2",
@@ -627,28 +627,28 @@
                 data: {
                     labels: [],
                     datasets: [{
-                        label: "Luar Bilik 1 (Konv.)",
+                        label: "Luar Bilik 1",
                         data: [],
                         borderColor: "#64748b",
                         borderDash: [6, 4],
                         borderWidth: 1.8,
                         fill: false
                     }, {
-                        label: "Luar Bilik 2 (Low-E)",
+                        label: "Luar Bilik 2",
                         data: [],
                         borderColor: "#6366f1",
                         borderDash: [2, 3],
                         borderWidth: 1.8,
                         fill: false
                     }, {
-                        label: "Dalam Konvensional",
+                        label: "Dalam Bilik 1",
                         data: [],
                         borderColor: "#d97706",
                         backgroundColor: makeGradient(217, 119, 6, 0.18),
                         borderWidth: 2.5,
                         fill: true
                     }, {
-                        label: "Dalam Low-E",
+                        label: "Dalam Bilik 2",
                         data: [],
                         borderColor: "#0284c7",
                         backgroundColor: makeGradient(2, 132, 199, 0.18),
@@ -664,28 +664,28 @@
                 data: {
                     labels: [],
                     datasets: [{
-                        label: "Luar Bilik 1 (Konv.)",
+                        label: "Luar Bilik 1",
                         data: [],
                         borderColor: "#64748b",
                         borderDash: [6, 4],
                         borderWidth: 1.8,
                         fill: false
                     }, {
-                        label: "Luar Bilik 2 (Low-E)",
+                        label: "Luar Bilik 2",
                         data: [],
                         borderColor: "#6366f1",
                         borderDash: [2, 3],
                         borderWidth: 1.8,
                         fill: false
                     }, {
-                        label: "Dalam Konvensional",
+                        label: "Dalam Bilik 1",
                         data: [],
                         borderColor: "#ea580c",
                         backgroundColor: makeGradient(234, 88, 12, 0.2),
                         borderWidth: 2.5,
                         fill: true
                     }, {
-                        label: "Dalam Low-E",
+                        label: "Dalam Bilik 2",
                         data: [],
                         borderColor: "#0891b2",
                         backgroundColor: makeGradient(8, 145, 178, 0.2),
@@ -753,13 +753,21 @@
             document.getElementById("k2-ir-in").innerText = Math.round(k2.ir_in).toLocaleString("id-ID");
             document.getElementById("k2-ir-pct").innerText = k2IrPct + "%";
 
-            const tempGap = (k1.t_in - k2.t_in).toFixed(1);
-            document.getElementById("badge-temp-diff").innerText =
-                tempGap >= 0 ? `Low-E: ${tempGap} °C lebih sejuk` : `Selisih Bilik: ${Math.abs(tempGap)} °C`;
-            document.getElementById("badge-lux-diff").innerText = `Low-E: ${k2LuxPct}% vs Konv: ${k1LuxPct}%`;
-            const irRejectLowE = Math.max(0, +(100 - k2IrPct).toFixed(1));
-            const irRejectKonv = Math.max(0, +(100 - k1IrPct).toFixed(1));
-            document.getElementById("badge-ir-diff").innerText = `Blokir IR Low-E: ${irRejectLowE}%`;
+            const badgeTempEl = document.getElementById("badge-temp-diff");
+            if (k1.t_in >= k2.t_in) {
+                const pct = k1.t_in > 0 ? (((k1.t_in - k2.t_in) / k1.t_in) * 100).toFixed(1) : "0.0";
+                badgeTempEl.innerText = `Bilik 2: ${pct}% lebih sejuk`;
+                badgeTempEl.className = "text-[11px] font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200";
+            } else {
+                const pct = k2.t_in > 0 ? (((k2.t_in - k1.t_in) / k2.t_in) * 100).toFixed(1) : "0.0";
+                badgeTempEl.innerText = `Bilik 1: ${pct}% lebih sejuk`;
+                badgeTempEl.className = "text-[11px] font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200";
+            }
+
+            document.getElementById("badge-lux-diff").innerText = `Bilik 1: ${k1LuxPct}% vs Bilik 2: ${k2LuxPct}%`;
+            const irRejectB1 = Math.max(0, +(100 - k1IrPct).toFixed(1));
+            const irRejectB2 = Math.max(0, +(100 - k2IrPct).toFixed(1));
+            document.getElementById("badge-ir-diff").innerText = `Blokir IR: B1 ${irRejectB1}% • B2 ${irRejectB2}%`;
 
             const setLed = (id, ok) => {
                 document.getElementById(id).className = `w-2.5 h-2.5 rounded-full ${ok ? "bg-emerald-500" : "bg-rose-500"}`;
@@ -773,8 +781,8 @@
             pushChartPoint(chartIR, now, [k1.ir_out, k2.ir_out, k1.ir_in, k2.ir_in]);
 
             if (chartBar) {
-                chartBar.data.datasets[0].data = [k1LuxPct, k1IrPct, irRejectKonv];
-                chartBar.data.datasets[1].data = [k2LuxPct, k2IrPct, irRejectLowE];
+                chartBar.data.datasets[0].data = [k1LuxPct, k1IrPct, irRejectB1];
+                chartBar.data.datasets[1].data = [k2LuxPct, k2IrPct, irRejectB2];
                 chartBar.update();
             }
 
@@ -797,7 +805,7 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
-            a.download = `monitoring_bilik_kaca_UNAND_${new Date().toISOString().slice(0,10)}.csv`;
+            a.download = `monitoring_bilik_kaca_UNAND_${new Date().toISOString().slice(0, 10)}.csv`;
             a.click();
         }
 
